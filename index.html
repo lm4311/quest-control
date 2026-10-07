@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quest Control</title>
+<style>
+  :root {
+    --bg: #f3f4f1; --surface: #ffffff; --ink: #15181a; --muted: #5f666c; --line: #e1e3de;
+    --on: #1c8348; --on-soft: #e3f3e9; --warn: #a96a12; --warn-soft: #f8eed9;
+    --bad: #b93a2c; --bad-soft: #fae7e3; --off: #8b9298; --track: #cfd3ce;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101213; --surface: #191c1e; --ink: #eceeed; --muted: #979ea4; --line: #2a2e31;
+      --on: #4cc27e; --on-soft: #17301f; --warn: #e0a84a; --warn-soft: #33290f;
+      --bad: #ef6a5b; --bad-soft: #391a16; --off: #6c7379; --track: #3a3f43;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.45 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  }
+  main { max-width: 720px; margin: 0 auto; padding: 28px 16px 48px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 17px; font-weight: 650; margin: 0; letter-spacing: 0.01em; }
+  h2 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 28px 0 8px; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px;
+    background: var(--surface); border: 1px solid var(--line); font-size: 13px; color: var(--muted);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--off); flex: none; }
+  [data-tone="on"] .dot, .dot[data-tone="on"] { background: var(--on); }
+  [data-tone="warn"] .dot, .dot[data-tone="warn"] { background: var(--warn); }
+  [data-tone="bad"] .dot, .dot[data-tone="bad"] { background: var(--bad); }
+  .pill[data-tone="on"] { color: var(--ink); }
+
+  .banner {
+    margin: 16px 0 0; padding: 12px 14px; border-radius: 10px;
+    background: var(--warn-soft); color: var(--ink); border: 1px solid var(--line);
+  }
+  .banner a { color: inherit; font-weight: 600; }
+
+  .hero {
+    margin-top: 20px; padding: 22px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  }
+  .eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+  .big { font-size: 40px; line-height: 1.1; font-weight: 650; letter-spacing: -0.02em; display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+  .big .dot { width: 12px; height: 12px; }
+  .sub { color: var(--muted); font-size: 13px; margin-top: 6px; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; }
+  .row + .row { border-top: 1px solid var(--line); }
+  .row.child { padding-left: 38px; }
+  .row .text { min-width: 0; }
+  .row .name { font-weight: 600; }
+  .row.child .name { font-weight: 500; }
+  .row .hint { color: var(--muted); font-size: 13px; }
+  .row .side { display: flex; align-items: center; gap: 12px; flex: none; }
+  .state { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .state[data-tone="on"] { color: var(--on); }
+  .state[data-tone="warn"] { color: var(--warn); }
+  .state[data-tone="bad"] { color: var(--bad); }
+
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:disabled { cursor: not-allowed; opacity: 0.45; }
+  button:focus-visible { outline: 2px solid var(--on); outline-offset: 2px; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    padding: 8px 16px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); font-weight: 600;
+  }
+  .btn:hover:not(:disabled) { border-color: var(--off); }
+  .btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+  .btn.danger { color: var(--bad); }
+  .pending { opacity: 0.6; pointer-events: none; }
+
+  .switch {
+    width: 44px; height: 26px; border-radius: 999px; border: 0; padding: 0; background: var(--track);
+    position: relative; flex: none; transition: background 0.15s;
+  }
+  .switch::after {
+    content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; transition: transform 0.15s; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  }
+  .switch[aria-checked="true"] { background: var(--on); }
+  .switch[aria-checked="true"]::after { transform: translateX(18px); }
+  .switch[aria-checked="mixed"] { background: var(--warn); }
+  .switch[aria-checked="mixed"]::after { transform: translateX(9px); }
+
+  .log { list-style: none; margin: 0; padding: 0; }
+  .log li { padding: 10px 18px; display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: baseline; }
+  .log li + li { border-top: 1px solid var(--line); }
+  .log time { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .log .result { font-size: 13px; }
+  .log pre {
+    grid-column: 2 / -1; margin: 0; white-space: pre-wrap; word-break: break-word; color: var(--muted);
+    font: 12px/1.4 "Cascadia Mono", Consolas, monospace;
+  }
+  .empty { padding: 14px 18px; color: var(--muted); }
+  footer { margin-top: 18px; color: var(--muted); font-size: 13px; }
+
+  @media (max-width: 520px) {
+    .big { font-size: 32px; }
+    .row { flex-wrap: wrap; }
+    .row.child { padding-left: 28px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Quest Control</h1>
+    <div class="pill" id="conn"><span class="dot"></span><span id="connText">Checking…</span></div>
+  </header>
+
+  <p class="banner" id="banner" hidden></p>
+
+  <section class="hero">
+    <div>
+      <div class="eyebrow">Headset</div>
+      <div class="big"><span class="dot" id="awakeDot"></span><span id="awakeText">—</span></div>
+      <div class="sub" id="awakeSub">&nbsp;</div>
+    </div>
+    <div class="btns">
+      <button class="btn primary" data-action="wake">Wake</button>
+      <button class="btn" data-action="sleep">Sleep</button>
+    </div>
+  </section>
+
+  <h2>Always-on</h2>
+  <section class="card">
+    <div class="row">
+      <div class="text">
+        <div class="name">Always-on</div>
+        <div class="hint">Keeps the headset awake off your head. Turns on both settings below and wakes it.</div>
+      </div>
+      <div class="side">
+        <span class="state" id="alwaysState">—</span>
+        <button class="switch" role="switch" aria-label="Always-on" data-key="alwaysOn" data-on="always_on" data-off="always_off"></button>
+      </div>
+    </div>
+    <div class="row child">
+      <div class="text">
+        <div class="name">Worn override</div>
+        <div class="hint">Makes the headset think it is being worn. Lost when the headset reboots.</div>
+      </div>
+      <div class="side">
+        <span class="state" id="wornState">—</span>
+        <button class="switch" role="switch" aria-label="Worn override" data-key="wornOverride" data-on="worn_on" data-off="worn_off"></button>
+      </div>
+    </div>
+    <div class="row child">
+      <div class="text">
+        <div class="name">Stay awake on power</div>
+        <div class="hint">Stops the screen timing out while the headset is plugged in.</div>
+      </div>
+      <div class="side">
+        <span class="state" id="stayState">—</span>
+        <button class="switch" role="switch" aria-label="Stay awake on power" data-key="stayOn" data-on="stayon_on" data-off="stayon_off"></button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="text">
+        <div class="name">Re-apply automatically</div>
+        <div class="hint">Turns always-on back on after a reboot or reconnect, while this panel is running.</div>
+      </div>
+      <div class="side">
+        <span class="state" id="autoState">—</span>
+        <button class="switch" role="switch" aria-label="Re-apply automatically" data-key="autoKeep" data-on="autokeep_on" data-off="autokeep_off" data-local></button>
+      </div>
+    </div>
+  </section>
+
+  <h2>Device</h2>
+  <section class="card">
+    <div class="row">
+      <div class="text">
+        <div class="name">Battery</div>
+        <div class="hint" id="batteryHint">&nbsp;</div>
+      </div>
+      <div class="side"><span class="state" id="batteryState">—</span></div>
+    </div>
+    <div class="row">
+      <div class="text">
+        <div class="name">Pause boundary</div>
+        <div class="hint">Stops boundary prompts from interrupting a test. Resets when the headset reboots.</div>
+      </div>
+      <div class="side">
+        <span class="state" id="boundaryState">—</span>
+        <button class="switch" role="switch" aria-label="Pause boundary" data-key="boundaryPaused" data-on="boundary_pause" data-off="boundary_resume"></button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="text">
+        <div class="name">Reboot headset</div>
+        <div class="hint">Restarts the Quest. The worn override has to be turned on again afterwards.</div>
+      </div>
+      <div class="side">
+        <button class="btn danger" data-action="reboot" data-confirm="Reboot the headset now?">Reboot</button>
+      </div>
+    </div>
+    <div class="row">
+      <div class="text">
+        <div class="name">Restart ADB</div>
+        <div class="hint">Try this if the headset is plugged in but shows as not detected.</div>
+      </div>
+      <div class="side">
+        <button class="btn" data-action="adb_restart" data-local>Restart ADB</button>
+      </div>
+    </div>
+  </section>
+
+  <h2>Activity</h2>
+  <section class="card">
+    <ul class="log" id="log"></ul>
+    <div class="empty" id="logEmpty">No commands sent yet.</div>
+  </section>
+
+  <footer id="footer">&nbsp;</footer>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const time = (ms) => new Date(ms).toLocaleTimeString();
+let status = null;
+
+const CONNECTION = {
+  none: { pill: 'No headset detected', banner: 'Plug the headset in over USB-C. If it is already plugged in, try Restart ADB below.' },
+  unauthorized: { pill: 'USB debugging not allowed', banner: 'Put the headset on and accept the "Allow USB debugging" prompt.' },
+  offline: { pill: 'Headset offline', banner: 'The headset is connected but not answering. Replug the cable, or try Restart ADB below.' },
+  error: { pill: 'Headset not responding', banner: 'The headset did not answer the status check. Replug the cable, or try Restart ADB below.' },
+  'no-adb': { pill: 'adb not found', banner: 'adb.exe was not found. Install the Android platform-tools, or set the ADB_PATH environment variable, then restart this panel.' },
+  down: { pill: 'Panel stopped', banner: 'The Quest Control window was closed. Run "Start Quest Control.bat" again.' },
+};
+
+// Opened from the helper itself, the page talks to its own server. Opened from a website
+// (GitHub Pages), it talks to the helper running on this PC.
+const HELPER = 'http://127.0.0.1:8722';
+const HOSTED = ![HELPER, 'http://localhost:8722'].includes(location.origin);
+if (HOSTED) {
+  CONNECTION.down = {
+    pill: 'Helper not running',
+    banner: 'This page controls the Quest through a small helper on this PC. Run "Start Quest Control.bat" with the Quest plugged in, and allow local network access if the browser asks. ',
+  };
+}
+
+function helperLink() {
+  // A project page lives at https://<user>.github.io/<repo>/, which maps straight onto the repository.
+  const repo = location.pathname.split('/')[1];
+  if (!HOSTED || !location.hostname.endsWith('.github.io') || !repo) return null;
+  const a = document.createElement('a');
+  a.href = `https://github.com/${location.hostname.split('.')[0]}/${repo}`;
+  a.textContent = 'Get the helper from GitHub.';
+  return a;
+}
+
+async function api(path, body) {
+  const res = await fetch((HOSTED ? HELPER : '') + path, body && {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
+function setState(id, text, tone) {
+  $(id).textContent = text;
+  $(id).dataset.tone = tone || '';
+}
+
+function render() {
+  const s = status || { connection: 'down', log: [] };
+  const ready = s.connection === 'ready';
+  const problem = CONNECTION[s.connection];
+
+  $('conn').dataset.tone = ready ? 'on' : 'bad';
+  $('connText').textContent = ready ? `${s.model} · ${s.serial}` : problem.pill;
+  $('banner').hidden = ready;
+  $('banner').textContent = ready ? '' : problem.banner;
+  const link = s.connection === 'down' && helperLink();
+  if (link) $('banner').append(link);
+
+  document.querySelectorAll('[data-action], [data-on]').forEach((el) => {
+    el.disabled = s.connection === 'down' || (!ready && !('local' in el.dataset));
+  });
+
+  $('awakeText').textContent = !ready ? 'Not connected' : s.awake ? 'Awake' : s.wakefulness === 'Unknown' ? 'Unknown' : 'Asleep';
+  $('awakeDot').dataset.tone = ready && s.awake ? 'on' : '';
+  $('awakeSub').textContent = !ready ? ' '
+    : s.wornOverride ? 'Treated as being worn (override on).'
+    : s.headsetState === 'HEADSET_MOUNTED' ? 'Being worn right now.'
+    : 'Not being worn, so it will sleep on its own.';
+
+  const always = ready ? s.alwaysOn : 'off';
+  setState('alwaysState', !ready ? '—' : { on: 'On', partial: 'Partly on', off: 'Off' }[always], { on: 'on', partial: 'warn' }[always]);
+  setState('wornState', !ready ? '—' : s.wornOverride ? 'On' : 'Off', ready && s.wornOverride && 'on');
+  setState('stayState', !ready ? '—' : s.stayOn ? 'On' : 'Off', ready && s.stayOn && 'on');
+  setState('boundaryState', !ready ? '—' : s.boundaryPaused ? 'Paused' : 'Active', ready && s.boundaryPaused && 'warn');
+  setState('autoState', s.connection === 'down' ? '—' : s.autoKeep ? 'On' : 'Off', s.autoKeep && 'on');
+
+  document.querySelectorAll('.switch').forEach((el) => {
+    const value = el.dataset.key === 'autoKeep' ? s.autoKeep : ready && s[el.dataset.key];
+    el.setAttribute('aria-checked', value === 'partial' ? 'mixed' : value === true || value === 'on' ? 'true' : 'false');
+  });
+
+  if (ready) {
+    const b = s.battery;
+    const draining = s.powered && b.status === 'discharging';
+    setState('batteryState', `${b.level}% · ${b.status}`, draining ? 'warn' : b.status === 'charging' || b.status === 'full' ? 'on' : '');
+    $('batteryHint').textContent = (draining
+      ? 'Plugged in but still draining: this USB port supplies too little power. '
+      : s.powered ? 'Plugged in. ' : 'Running on battery. ')
+      + (b.tempC == null ? '' : `Battery temperature ${b.tempC.toFixed(1)} °C.`);
+  } else {
+    setState('batteryState', '—');
+    $('batteryHint').textContent = ' ';
+  }
+
+  const list = $('log');
+  list.replaceChildren(...s.log.slice(0, 12).map((entry) => {
+    const li = document.createElement('li');
+    const when = document.createElement('time');
+    when.textContent = time(entry.time);
+    const label = document.createElement('span');
+    label.textContent = entry.label + (entry.source === 'auto' ? ' (automatic)' : '');
+    const result = document.createElement('span');
+    result.className = 'result state';
+    result.dataset.tone = entry.ok ? 'on' : 'bad';
+    result.textContent = entry.ok ? 'Done' : 'Failed';
+    li.append(when, label, result);
+    if (!entry.ok && entry.output) {
+      const pre = document.createElement('pre');
+      pre.textContent = entry.output;
+      li.append(pre);
+    }
+    return li;
+  }));
+  $('logEmpty').hidden = s.log.length > 0;
+  $('footer').textContent = status ? `Status checked ${time(s.checkedAt)}. Refreshes every 2 seconds.` : ' ';
+}
+
+async function refresh() {
+  try {
+    status = await api('/api/status');
+  } catch {
+    status = null;
+  }
+  render();
+}
+
+document.addEventListener('click', async (event) => {
+  const el = event.target.closest('[data-action], [data-on]');
+  if (!el || el.disabled) return;
+  const id = el.dataset.action || (el.getAttribute('aria-checked') === 'true' ? el.dataset.off : el.dataset.on);
+  if (el.dataset.confirm && !confirm(el.dataset.confirm)) return;
+  el.classList.add('pending');
+  try {
+    await api('/api/action', { id });
+  } catch {}
+  el.classList.remove('pending');
+  await refresh();
+  // The headset takes a moment to report a wake or sleep.
+  setTimeout(refresh, 900);
+});
+
+refresh();
+setInterval(() => { if (!document.hidden) refresh(); }, 2000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+</script>
+</body>
+</html>
