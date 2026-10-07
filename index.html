@@ -246,17 +246,17 @@ const HOSTED = ![HELPER, 'http://localhost:8722'].includes(location.origin);
 if (HOSTED) {
   CONNECTION.down = {
     pill: 'Helper not running',
-    banner: 'This page controls the Quest through a small helper on this PC. Run "Start Quest Control.bat" with the Quest plugged in, and allow local network access if the browser asks. ',
+    banner: 'This page controls the Quest through a small helper on this PC. Open "Quest Control" from your Desktop with the Quest plugged in, and allow local network access if the browser asks. First time here? ',
   };
 }
 
 function helperLink() {
-  // A project page lives at https://<user>.github.io/<repo>/, which maps straight onto the repository.
-  const repo = location.pathname.split('/')[1];
-  if (!HOSTED || !location.hostname.endsWith('.github.io') || !repo) return null;
+  if (!HOSTED) return null;
+  // The installer is published next to this page.
   const a = document.createElement('a');
-  a.href = `https://github.com/${location.hostname.split('.')[0]}/${repo}`;
-  a.textContent = 'Get the helper from GitHub.';
+  a.href = 'Install Quest Control.bat';
+  a.download = '';
+  a.textContent = 'Download the installer and run it.';
   return a;
 }
 
